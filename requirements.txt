@@ -5,4 +5,5 @@ beautifulsoup4==4.12.3
 newspaper3k==0.2.8
 googlenewsdecoder==0.1.2
 lxml==5.1.0
+lxml_html_clean==0.4.1
 python-multipart==0.0.9

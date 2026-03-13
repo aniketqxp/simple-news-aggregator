@@ -1,60 +1,72 @@
 # Feed — Minimalist News Aggregator
 
-A high-performance, real-time news aggregator built with a focus on extreme minimalism, dense information architecture, and a premium "Linear-style" aesthetic.
+A high-performance, real-time news aggregator with a premium dark interface. Fetches live articles from Google News, extracts hero images and snippets on the fly, and renders them in a responsive card grid with dynamic color accents.
 
-![Feed UI Screenshot](.github/assets/screenshot.png) <!-- Note: We will add a screenshot here later -->
-
-## Architecture
-
-Feed is designed as a single-page application served directly by a Python backend:
-
-- **Frontend**: Pure HTML, Vanilla JS, and Tailwind CSS (via CDN). No heavy client-side frameworks.
-- **Backend**: FastAPI (Python). Handles real-time scraping, Google News URL decoding, and image proxying.
-- **Scraping Engine**: `newspaper3k` and `googlenewsdecoder` extract full article snippets and hero images on the fly.
-- **Design System**: Monochrome zinc palette, Inter font, custom dropdown components, and Color Thief for dynamic hover accents.
+![Python](https://img.shields.io/badge/Python-3.9+-3776AB?style=flat-square&logo=python&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.110-009688?style=flat-square&logo=fastapi&logoColor=white)
+![JavaScript](https://img.shields.io/badge/JavaScript-ES6+-F7DF1E?style=flat-square&logo=javascript&logoColor=black)
+![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-CDN-06B6D4?style=flat-square&logo=tailwindcss&logoColor=white)
+![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)
 
 ## Features
 
-- **Real-Time Extraction**: Fetches and parses live articles directly from Google News.
-- **Smart Image Proxying**: Bypasses strict CORS and hotlink protection by proxying images server-side.
-- **Intelligent Caching**: In-memory caching on both the backend (to prevent redundant scraping) and frontend (for instant category switching).
-- **Dynamic Color Accents**: Uses `color-thief.js` to extract dominant colors from hero images, applying them as subtle ambient hover glows.
-- **Responsive "Full-Bleed" Grid**: Modern card layout where the image fills the card, overlaid with text via a gradient scrim.
+- **Real-Time Extraction** — Fetches and parses live articles directly from Google News RSS
+- **Smart Image Proxying** — Bypasses CORS and hotlink protection by streaming images server-side
+- **Intelligent Caching** — LRU-capped in-memory cache (backend) + per-category cache (frontend) for instant switching
+- **Dynamic Color Accents** — Extracts dominant colors from hero images via Color Thief, applying ambient hover glows
+- **Full-Bleed Card Grid** — Responsive layout where images fill the card, overlaid with text via gradient scrims
+- **Keyboard Accessible** — Full keyboard navigation for the dropdown, chips, and card grid
+
+## How It Works
+
+```
+┌─────────────┐      ┌──────────────────┐      ┌──────────────────┐
+│   Browser    │ ───► │  FastAPI Backend  │ ───► │  Google News RSS  │
+│  (app.js)    │ ◄─── │   (main.py)      │ ◄─── │  + newspaper3k   │
+└─────────────┘      └──────────────────┘      └──────────────────┘
+```
+
+1. User searches or clicks a topic chip
+2. Frontend sends a request to `/fetch-news?q=<query>`
+3. Backend fetches the Google News RSS feed, decodes redirect URLs, and uses `newspaper3k` to extract hero images and text snippets
+4. Results are cached (LRU, 30-min expiry) and returned as JSON
+5. Frontend renders cards with mesh gradient fallbacks and proxied images via `/proxy-image`
+
+## Tech Stack
+
+| Layer    | Technology |
+|----------|------------|
+| Backend  | Python, FastAPI, uvicorn |
+| Scraping | newspaper3k, BeautifulSoup, googlenewsdecoder |
+| Frontend | Vanilla JS, Tailwind CSS (CDN), Color Thief |
+| Serving  | FastAPI static file mount |
 
 ## Local Development
 
 ### Prerequisites
-- Python 3.9+ 
+- Python 3.9+
 
 ### Setup
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/aniketqxp/simple-news-aggregator.git
-   cd simple-news-aggregator
-   ```
+```bash
+git clone https://github.com/aniketqxp/simple-news-aggregator.git
+cd simple-news-aggregator
+pip install -r requirements.txt
+uvicorn main:app --reload --port 8000
+```
 
-2. Install dependencies:
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-3. Run the development server:
-   ```bash
-   uvicorn main:app --reload --port 8000
-   ```
-
-4. Open your browser to `http://127.0.0.1:8000`
+Open [http://127.0.0.1:8000](http://127.0.0.1:8000) in your browser.
 
 ## Deployment
 
-Because Feed relies on a Python backend for scraping and proxying, it should be deployed as a **Web Service** on platforms like Render, Railway, or Heroku, rather than a static site host.
+Feed requires a Python backend for scraping and image proxying — deploy as a **web service**, not a static site.
 
-1. Connect your repository to your cloud provider.
-2. Ensure the build command installs dependencies (`pip install -r requirements.txt`).
-3. Set the start command to:
-   ```bash
-   uvicorn main:app --host 0.0.0.0 --port $PORT
-   ```
+**Render / Railway / Heroku:**
+1. Connect the repository
+2. Build command: `pip install -r requirements.txt`
+3. Start command: `uvicorn main:app --host 0.0.0.0 --port $PORT`
+
+The `/health` endpoint returns `{"status": "ok"}` for platform health checks.
 
 ## License
-MIT License
+
+MIT — see [LICENSE](LICENSE) for details.

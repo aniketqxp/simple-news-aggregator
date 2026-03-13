@@ -35,6 +35,17 @@ const MESH_FALLBACKS = [
 let colorThief;
 try { colorThief = new ColorThief(); } catch(e) { colorThief = null; }
 
+// ========== XSS SANITIZATION ==========
+function escapeHTML(str) {
+    if (!str) return '';
+    return str
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+
 // ========== CUSTOM DROPDOWN ==========
 function createDropdown() {
     const container = document.getElementById('count-dropdown-container');
@@ -42,16 +53,16 @@ function createDropdown() {
     
     container.innerHTML = `
         <div class="custom-dropdown" id="count-dropdown">
-            <div class="dropdown-trigger">
+            <div class="dropdown-trigger" role="button" tabindex="0" aria-haspopup="listbox" aria-expanded="false" aria-label="Select number of results">
                 <span class="text-zinc-500 font-medium">Results</span>
                 <span class="dropdown-value text-zinc-200">${articleCount}</span>
-                <svg class="w-3 h-3 text-zinc-500 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg class="w-3 h-3 text-zinc-500 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
                 </svg>
             </div>
-            <div class="dropdown-menu">
+            <div class="dropdown-menu" role="listbox">
                 ${options.map(n => `
-                    <div class="dropdown-item ${n === articleCount ? 'active' : ''}" data-value="${n}">${n}</div>
+                    <div class="dropdown-item ${n === articleCount ? 'active' : ''}" data-value="${n}" role="option" tabindex="0" aria-selected="${n === articleCount}">${n}</div>
                 `).join('')}
             </div>
         </div>
@@ -62,27 +73,63 @@ function createDropdown() {
     const valueEl = dropdown.querySelector('.dropdown-value');
     const items = dropdown.querySelectorAll('.dropdown-item');
     
+    function toggleDropdown(open) {
+        const isOpen = open !== undefined ? open : !dropdown.classList.contains('open');
+        dropdown.classList.toggle('open', isOpen);
+        trigger.setAttribute('aria-expanded', isOpen);
+    }
+    
     trigger.addEventListener('click', (e) => {
         e.stopPropagation();
-        dropdown.classList.toggle('open');
+        toggleDropdown();
+    });
+    
+    // Keyboard support for trigger
+    trigger.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            e.stopPropagation();
+            toggleDropdown();
+        } else if (e.key === 'Escape') {
+            toggleDropdown(false);
+        }
     });
     
     items.forEach(item => {
         item.addEventListener('click', (e) => {
             e.stopPropagation();
-            const val = parseInt(item.dataset.value);
-            articleCount = val;
-            valueEl.textContent = val;
-            items.forEach(i => i.classList.remove('active'));
-            item.classList.add('active');
-            dropdown.classList.remove('open');
-            Object.keys(categoryData).forEach(key => delete categoryData[key]);
-            fetchNews();
+            selectItem(item);
+        });
+        // Keyboard support for items
+        item.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                e.stopPropagation();
+                selectItem(item);
+            } else if (e.key === 'Escape') {
+                toggleDropdown(false);
+                trigger.focus();
+            }
         });
     });
     
+    function selectItem(item) {
+        const val = parseInt(item.dataset.value);
+        articleCount = val;
+        valueEl.textContent = val;
+        items.forEach(i => {
+            i.classList.remove('active');
+            i.setAttribute('aria-selected', 'false');
+        });
+        item.classList.add('active');
+        item.setAttribute('aria-selected', 'true');
+        toggleDropdown(false);
+        Object.keys(categoryData).forEach(key => delete categoryData[key]);
+        fetchNews();
+    }
+    
     // Close on outside click
-    document.addEventListener('click', () => dropdown.classList.remove('open'));
+    document.addEventListener('click', () => toggleDropdown(false));
 }
 
 // ========== INIT ==========
@@ -111,6 +158,8 @@ function renderChips() {
     quickTopics.forEach(topic => {
         const btn = document.createElement('button');
         btn.textContent = topic;
+        btn.setAttribute('role', 'tab');
+        btn.setAttribute('aria-selected', topic.toLowerCase() === currentQuery.toLowerCase());
         const isActive = topic.toLowerCase() === currentQuery.toLowerCase();
         btn.className = isActive
             ? 'px-2.5 py-1 rounded-md text-[12px] font-medium transition-all duration-150 text-zinc-100 bg-zinc-800 border border-zinc-700'
@@ -131,6 +180,7 @@ function updateActiveChip() {
         btn.className = isActive
             ? 'px-2.5 py-1 rounded-md text-[12px] font-medium transition-all duration-150 text-zinc-100 bg-zinc-800 border border-zinc-700'
             : 'px-2.5 py-1 rounded-md text-[12px] font-medium transition-all duration-150 text-zinc-500 hover:text-zinc-300 border border-transparent hover:border-zinc-800';
+        btn.setAttribute('aria-selected', isActive);
     });
     currentTopicTitle.textContent = currentQuery ? `${currentQuery}` : 'Top Stories';
 }
@@ -225,7 +275,7 @@ function renderNews(items) {
     if(items.length === 0) {
         newsGrid.innerHTML = `
             <div class="col-span-full py-16 flex flex-col items-center justify-center text-center">
-                <p class="text-zinc-500 text-[13px]">No results for "${currentQuery}"</p>
+                <p class="text-zinc-500 text-[13px]">No results for "${escapeHTML(currentQuery)}"</p>
             </div>`;
         return;
     }
@@ -275,6 +325,7 @@ function renderNews(items) {
         card.className = 'news-card animate-fade-in-up';
         card.style.animationDelay = `${delay}ms`;
         card.style.height = '340px';
+        card.setAttribute('aria-label', escapeHTML(cleanTitle));
         
         // Hover glow
         card.addEventListener('mouseenter', function() {
@@ -314,22 +365,22 @@ function renderNews(items) {
                 <!-- Publisher + Time -->
                 <div class="flex items-center justify-between mb-1.5">
                     <div class="flex items-center space-x-1.5 min-w-0">
-                        ${logoSrc ? `<img src="${logoSrc}" alt="" class="w-3.5 h-3.5 rounded-sm flex-shrink-0 opacity-80" onerror="this.style.display='none'">` : ''}
-                        <span class="text-[11px] text-zinc-400 font-medium truncate">${publisher}</span>
+                        ${logoSrc ? `<img src="${escapeHTML(logoSrc)}" alt="" class="w-3.5 h-3.5 rounded-sm flex-shrink-0 opacity-80" onerror="this.style.display='none'">` : ''}
+                        <span class="text-[11px] text-zinc-400 font-medium truncate">${escapeHTML(publisher)}</span>
                     </div>
-                    <span class="text-[10px] text-zinc-500 flex-shrink-0 ml-2 tabular-nums">${relativeTime}</span>
+                    <span class="text-[10px] text-zinc-500 flex-shrink-0 ml-2 tabular-nums">${escapeHTML(relativeTime)}</span>
                 </div>
                 
                 <!-- Headline -->
                 <h3 class="text-[14px] font-semibold text-white leading-snug line-clamp-2" style="text-shadow: 0 1px 3px rgba(0,0,0,0.3);">
-                    ${cleanTitle}
+                    ${escapeHTML(cleanTitle)}
                 </h3>
                 
                 <!-- Snippet: slides up on hover -->
                 ${snippet ? `
                 <div class="card-snippet">
                     <p class="text-[11px] text-zinc-400 leading-relaxed line-clamp-2 mt-2">
-                        ${snippet}
+                        ${escapeHTML(snippet)}
                     </p>
                 </div>` : ''}
             </div>

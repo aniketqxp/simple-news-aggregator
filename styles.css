@@ -1,7 +1,3 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
 :root {
     color-scheme: dark;
     --bg: #09090b;
@@ -59,10 +55,15 @@ h1, h2, h3 { letter-spacing: -0.025em; }
     transition: box-shadow 0.2s ease-out, border-color 0.2s ease-out, transform 0.2s ease-out;
     cursor: pointer;
     display: block;
+    text-decoration: none;
 }
 .news-card:hover {
     border-color: var(--border-hover);
     transform: translateY(-2px);
+}
+.news-card:focus-visible {
+    outline: 2px solid var(--text-muted);
+    outline-offset: 2px;
 }
 
 /* Image fills entire card */
@@ -142,8 +143,13 @@ h1, h2, h3 { letter-spacing: -0.025em; }
     font-size: 12px;
     color: var(--text-muted);
 }
-.custom-dropdown .dropdown-trigger:hover {
+.custom-dropdown .dropdown-trigger:hover,
+.custom-dropdown .dropdown-trigger:focus-visible {
     border-color: var(--border-hover);
+}
+.custom-dropdown .dropdown-trigger:focus-visible {
+    outline: 2px solid var(--text-muted);
+    outline-offset: 2px;
 }
 .custom-dropdown .dropdown-menu {
     position: absolute;
@@ -174,26 +180,32 @@ h1, h2, h3 { letter-spacing: -0.025em; }
     color: var(--text-muted);
     transition: background 0.1s, color 0.1s;
 }
-.custom-dropdown .dropdown-item:hover {
+.custom-dropdown .dropdown-item:hover,
+.custom-dropdown .dropdown-item:focus-visible {
     background: rgba(255,255,255,0.06);
     color: var(--text);
+}
+.custom-dropdown .dropdown-item:focus-visible {
+    outline: 1px solid var(--text-muted);
+    outline-offset: -1px;
 }
 .custom-dropdown .dropdown-item.active {
     color: var(--text);
     background: rgba(255,255,255,0.04);
 }
 
-/* Select fallback hide */
-select option {
-    background-color: #18181b;
-    color: #fafafa;
-}
-
-/* Skeleton pulse override */
+/* Skeleton pulse */
 @keyframes skeleton-pulse {
     0%, 100% { opacity: 0.4; }
     50% { opacity: 0.15; }
 }
 .skeleton-pulse {
     animation: skeleton-pulse 1.5s ease-in-out infinite;
+}
+
+/* Footer */
+.site-footer {
+    margin-top: 3rem;
+    padding: 1.25rem 0;
+    border-top: 1px solid var(--border);
 }
