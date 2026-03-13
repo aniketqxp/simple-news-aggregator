@@ -1,22 +1,17 @@
-// Local FastAPI backend endpoint for fetching news
-const BASE_NEWS_URL = 'http://127.0.0.1:8000/fetch-news?q={query}';
+// Backend endpoint (relative for production deployment)
+const BASE_NEWS_URL = '/fetch-news?q={query}';
 
-let currentQuery = 'Technology';
+let currentQuery = 'AI';
 let articleCount = 15;
 let currentAbortController = null;
-
-// Memory Cache for instantaneous topic switching
 const categoryData = {};
 
-// DOM Elements
+// DOM
 const searchInput = document.getElementById('search-input');
 const searchForm = document.getElementById('search-form');
 const chipsContainer = document.getElementById('chips-container');
-const countSelect = document.getElementById('count-select');
 const refreshBtn = document.getElementById('refresh-btn');
 const refreshIcon = document.getElementById('refresh-icon');
-const refreshBtnMobile = document.getElementById('refresh-btn-mobile');
-const refreshIconMobile = document.getElementById('refresh-icon-mobile');
 const newsGrid = document.getElementById('news-grid');
 const loadingState = document.getElementById('loading-state');
 const errorState = document.getElementById('error-state');
@@ -24,25 +19,77 @@ const currentTopicTitle = document.getElementById('current-topic-title');
 
 const quickTopics = ['AI', 'Business', 'Finance', 'Soccer', 'Technology', 'Science', 'World'];
 
-// CSS gradient fallbacks — these NEVER fail because they're pure CSS, no network needed
-const GRADIENT_FALLBACKS = [
-    'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-    'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
-    'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
-    'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)',
-    'linear-gradient(135deg, #fa709a 0%, #fee140 100%)',
-    'linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%)',
-    'linear-gradient(135deg, #fccb90 0%, #d57eeb 100%)',
-    'linear-gradient(135deg, #e0c3fc 0%, #8ec5fc 100%)',
-    'linear-gradient(135deg, #f5576c 0%, #f093fb 100%)',
-    'linear-gradient(135deg, #5ee7df 0%, #b490ca 100%)',
+// Soft mesh gradient fallbacks — clearly decorative, never mistakable for "loading"
+const MESH_FALLBACKS = [
+    'radial-gradient(at 20% 30%, hsla(280,35%,45%,0.4) 0%, transparent 55%), radial-gradient(at 80% 70%, hsla(200,35%,45%,0.3) 0%, transparent 55%), linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)',
+    'radial-gradient(at 70% 20%, hsla(340,35%,50%,0.35) 0%, transparent 55%), radial-gradient(at 30% 80%, hsla(20,40%,45%,0.3) 0%, transparent 55%), linear-gradient(135deg, #1e1a2e 0%, #2a1a1e 100%)',
+    'radial-gradient(at 25% 75%, hsla(160,30%,40%,0.35) 0%, transparent 55%), radial-gradient(at 85% 25%, hsla(220,35%,45%,0.3) 0%, transparent 55%), linear-gradient(135deg, #1a2420 0%, #1a1e28 100%)',
+    'radial-gradient(at 60% 40%, hsla(40,40%,45%,0.35) 0%, transparent 55%), radial-gradient(at 20% 80%, hsla(300,30%,40%,0.25) 0%, transparent 55%), linear-gradient(135deg, #222018 0%, #1e1a24 100%)',
+    'radial-gradient(at 80% 80%, hsla(250,35%,50%,0.3) 0%, transparent 55%), radial-gradient(at 20% 20%, hsla(180,30%,45%,0.3) 0%, transparent 55%), linear-gradient(135deg, #1a1a28 0%, #1a2422 100%)',
+    'radial-gradient(at 50% 30%, hsla(10,40%,45%,0.35) 0%, transparent 55%), radial-gradient(at 50% 80%, hsla(260,30%,40%,0.25) 0%, transparent 55%), linear-gradient(135deg, #241a1a 0%, #1a1a24 100%)',
+    'radial-gradient(at 30% 50%, hsla(120,25%,40%,0.3) 0%, transparent 55%), radial-gradient(at 70% 50%, hsla(60,35%,40%,0.25) 0%, transparent 55%), linear-gradient(135deg, #1a221a 0%, #22201a 100%)',
+    'radial-gradient(at 40% 20%, hsla(320,35%,45%,0.35) 0%, transparent 55%), radial-gradient(at 60% 80%, hsla(180,30%,40%,0.25) 0%, transparent 55%), linear-gradient(135deg, #221a22 0%, #1a2222 100%)',
 ];
 
-// Init
+// Color Thief
+let colorThief;
+try { colorThief = new ColorThief(); } catch(e) { colorThief = null; }
+
+// ========== CUSTOM DROPDOWN ==========
+function createDropdown() {
+    const container = document.getElementById('count-dropdown-container');
+    const options = [5, 10, 15];
+    
+    container.innerHTML = `
+        <div class="custom-dropdown" id="count-dropdown">
+            <div class="dropdown-trigger">
+                <span class="text-zinc-500 font-medium">Results</span>
+                <span class="dropdown-value text-zinc-200">${articleCount}</span>
+                <svg class="w-3 h-3 text-zinc-500 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                </svg>
+            </div>
+            <div class="dropdown-menu">
+                ${options.map(n => `
+                    <div class="dropdown-item ${n === articleCount ? 'active' : ''}" data-value="${n}">${n}</div>
+                `).join('')}
+            </div>
+        </div>
+    `;
+    
+    const dropdown = container.querySelector('.custom-dropdown');
+    const trigger = dropdown.querySelector('.dropdown-trigger');
+    const valueEl = dropdown.querySelector('.dropdown-value');
+    const items = dropdown.querySelectorAll('.dropdown-item');
+    
+    trigger.addEventListener('click', (e) => {
+        e.stopPropagation();
+        dropdown.classList.toggle('open');
+    });
+    
+    items.forEach(item => {
+        item.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const val = parseInt(item.dataset.value);
+            articleCount = val;
+            valueEl.textContent = val;
+            items.forEach(i => i.classList.remove('active'));
+            item.classList.add('active');
+            dropdown.classList.remove('open');
+            Object.keys(categoryData).forEach(key => delete categoryData[key]);
+            fetchNews();
+        });
+    });
+    
+    // Close on outside click
+    document.addEventListener('click', () => dropdown.classList.remove('open'));
+}
+
+// ========== INIT ==========
 function init() {
+    createDropdown();
     renderChips();
     
-    // Event listeners
     searchForm.addEventListener('submit', (e) => {
         e.preventDefault();
         const val = searchInput.value.trim();
@@ -53,83 +100,61 @@ function init() {
         }
     });
     
-    countSelect.addEventListener('change', (e) => {
-        articleCount = parseInt(e.target.value);
-        // Clear cache so it fetches new amount
-        Object.keys(categoryData).forEach(key => delete categoryData[key]);
-        fetchNews();
-    });
-    
     refreshBtn.addEventListener('click', () => fetchNews(true));
-    if(refreshBtnMobile) {
-        refreshBtnMobile.addEventListener('click', () => fetchNews(true));
-    }
-    
-    // Initial UI state
     searchInput.value = currentQuery;
-    
-    // Fetch initial news
     fetchNews();
 }
 
+// ========== CHIPS ==========
 function renderChips() {
     chipsContainer.innerHTML = '';
     quickTopics.forEach(topic => {
         const btn = document.createElement('button');
         btn.textContent = topic;
-        
-        // Base classes
         const isActive = topic.toLowerCase() === currentQuery.toLowerCase();
-        btn.className = `px-5 py-2 rounded-full text-sm font-semibold transition-all duration-300 border ${
-            isActive 
-            ? 'bg-primary text-white border-primary shadow-lg shadow-primary/40 tracking-wide' 
-            : 'bg-white/5 text-gray-300 border-white/10 hover:bg-white/15 hover:text-white hover:border-white/20'
-        }`;
-        
+        btn.className = isActive
+            ? 'px-2.5 py-1 rounded-md text-[12px] font-medium transition-all duration-150 text-zinc-100 bg-zinc-800 border border-zinc-700'
+            : 'px-2.5 py-1 rounded-md text-[12px] font-medium transition-all duration-150 text-zinc-500 hover:text-zinc-300 border border-transparent hover:border-zinc-800';
         btn.addEventListener('click', () => {
             currentQuery = topic;
             searchInput.value = topic;
             updateActiveChip();
             fetchNews();
         });
-        
         chipsContainer.appendChild(btn);
     });
 }
 
 function updateActiveChip() {
     Array.from(chipsContainer.children).forEach(btn => {
-        if(btn.textContent.toLowerCase() === currentQuery.toLowerCase()) {
-            btn.className = 'px-5 py-2 rounded-full text-sm font-semibold transition-all duration-300 border bg-primary text-white border-primary shadow-lg shadow-primary/40 tracking-wide';
-        } else {
-            btn.className = 'px-5 py-2 rounded-full text-sm font-semibold transition-all duration-300 border bg-white/5 text-gray-300 border-white/10 hover:bg-white/15 hover:text-white hover:border-white/20';
-        }
+        const isActive = btn.textContent.toLowerCase() === currentQuery.toLowerCase();
+        btn.className = isActive
+            ? 'px-2.5 py-1 rounded-md text-[12px] font-medium transition-all duration-150 text-zinc-100 bg-zinc-800 border border-zinc-700'
+            : 'px-2.5 py-1 rounded-md text-[12px] font-medium transition-all duration-150 text-zinc-500 hover:text-zinc-300 border border-transparent hover:border-zinc-800';
     });
-    currentTopicTitle.textContent = currentQuery ? `${currentQuery} News` : 'Top Stories';
+    currentTopicTitle.textContent = currentQuery ? `${currentQuery}` : 'Top Stories';
 }
 
+// ========== TIME ==========
 function getRelativeTime(pubDateStr) {
     const pubDate = new Date(pubDateStr);
     if(isNaN(pubDate.getTime())) return 'Recently';
-    
     const now = new Date();
-    const diffInSeconds = Math.floor((now - pubDate) / 1000);
-    
-    if (diffInSeconds < 60) return 'Just now';
-    const diffInMinutes = Math.floor(diffInSeconds / 60);
-    if (diffInMinutes < 60) return `${diffInMinutes} min${diffInMinutes > 1 ? 's' : ''} ago`;
-    const diffInHours = Math.floor(diffInMinutes / 60);
-    if (diffInHours < 24) return `${diffInHours} hour${diffInHours > 1 ? 's' : ''} ago`;
-    const diffInDays = Math.floor(diffInHours / 24);
-    if (diffInDays < 30) return `${diffInDays} day${diffInDays > 1 ? 's' : ''} ago`;
-    
+    const s = Math.floor((now - pubDate) / 1000);
+    if (s < 60) return 'now';
+    const m = Math.floor(s / 60);
+    if (m < 60) return `${m}m`;
+    const h = Math.floor(m / 60);
+    if (h < 24) return `${h}h`;
+    const d = Math.floor(h / 24);
+    if (d < 30) return `${d}d`;
     return pubDate.toLocaleDateString();
 }
 
+// ========== LOADING ==========
 function showLoading() {
     refreshIcon.classList.add('animate-spin');
-    if(refreshIconMobile) refreshIconMobile.classList.add('animate-spin');
-    newsGrid.innerHTML = ''; // Clear old content so stale results never show
+    newsGrid.innerHTML = '';
     newsGrid.classList.add('hidden');
     errorState.classList.add('hidden');
     loadingState.classList.remove('hidden');
@@ -137,92 +162,76 @@ function showLoading() {
 
 function hideLoading() {
     refreshIcon.classList.remove('animate-spin');
-    if(refreshIconMobile) refreshIconMobile.classList.remove('animate-spin');
     loadingState.classList.add('hidden');
     newsGrid.classList.remove('hidden');
 }
 
+// ========== FETCH ==========
 async function fetchNews(forceRefresh = false) {
-    currentTopicTitle.textContent = currentQuery ? `${currentQuery} News` : 'Top Stories';
+    currentTopicTitle.textContent = currentQuery || 'Top Stories';
     
-    // Always abort any in-flight request first, even if we're about to load from cache.
-    // This prevents stale background fetches from completing and causing confusion.
     if (currentAbortController) {
         currentAbortController.abort();
         currentAbortController = null;
     }
     
-    // Check Memory Cache
     const normalizedQuery = currentQuery.toLowerCase();
     if (!forceRefresh && categoryData[normalizedQuery]) {
-        // Render instantly from cache — no loading state needed
         hideLoading();
         renderNews(categoryData[normalizedQuery].slice(0, articleCount));
         return;
     }
     
-    // Create a new controller for this request
     const controller = new AbortController();
     currentAbortController = controller;
-    const fetchQuery = currentQuery; // snapshot for staleness check
+    const fetchQuery = currentQuery;
     
     showLoading();
     
     try {
         const url = BASE_NEWS_URL.replace('{query}', encodeURIComponent(currentQuery));
         const response = await fetch(url, { signal: controller.signal });
-        
         if (!response.ok) throw new Error('Network response was not ok');
-        
         const items = await response.json();
-        
-        // Save to cache regardless
         categoryData[normalizedQuery] = items;
-        
-        // Staleness check: if user switched away during fetch, don't render
-        if (fetchQuery !== currentQuery) {
-            return;
-        }
-        
+        if (fetchQuery !== currentQuery) return;
         renderNews(items.slice(0, articleCount));
-        
     } catch (err) {
-        if (err.name === 'AbortError') {
-            // Silently ignore — the new fetch will handle UI
-            return;
-        }
+        if (err.name === 'AbortError') return;
         console.error('Error fetching news:', err);
         errorState.classList.remove('hidden');
     } finally {
-        // Only touch UI if this is still the active request
-        if (fetchQuery === currentQuery) {
-            hideLoading();
-        }
+        if (fetchQuery === currentQuery) hideLoading();
     }
 }
 
-// parseHTMLDescription moved to FastAPI backend
+// ========== COLOR THIEF ==========
+function applyColorThief(imgEl, cardEl) {
+    if (!colorThief || !imgEl.complete || imgEl.naturalWidth === 0) return;
+    try {
+        const [r, g, b] = colorThief.getColor(imgEl);
+        cardEl.style.borderTopColor = `rgba(${r},${g},${b},0.5)`;
+        cardEl.style.borderTopWidth = '2px';
+        cardEl.dataset.accentR = r;
+        cardEl.dataset.accentG = g;
+        cardEl.dataset.accentB = b;
+    } catch(e) { /* cross-origin — skip */ }
+}
 
+// ========== RENDER ==========
 function renderNews(items) {
     newsGrid.innerHTML = '';
     
     if(items.length === 0) {
         newsGrid.innerHTML = `
-            <div class="col-span-full py-20 flex flex-col items-center justify-center text-center">
-                <div class="w-20 h-20 bg-white/5 rounded-full flex items-center justify-center mb-6 border border-white/10 shadow-inner">
-                    <svg class="w-10 h-10 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z"></path>
-                    </svg>
-                </div>
-                <h3 class="text-2xl font-bold text-white mb-3">No articles found</h3>
-                <p class="text-gray-400 max-w-sm">We couldn't find any recent articles for "<span class="text-gray-200 font-medium">${currentQuery}</span>". Try searching for a different topic.</p>
-            </div>
-        `;
+            <div class="col-span-full py-16 flex flex-col items-center justify-center text-center">
+                <p class="text-zinc-500 text-[13px]">No results for "${currentQuery}"</p>
+            </div>`;
         return;
     }
     
     items.forEach((item, index) => {
-        const title = item.title || 'Untitled Story';
+        const title = item.title || 'Untitled';
         const link = item.link || '#';
         const pubDate = item.pubDate || new Date().toISOString();
         const sourceName = item.source || '';
@@ -230,99 +239,116 @@ function renderNews(items) {
         const snippet = item.snippet;
         const logoSrc = item.logo;
         
-        let publisher = 'Unknown Publisher';
-        
-        // Extract exact publisher from title (Usually formatted as 'Headline - Publisher')
+        // Parse publisher from title
+        let publisher = '';
         let cleanTitle = title;
         const titleParts = title.split(' - ');
         if(titleParts.length > 1) {
-            const possiblePublisher = titleParts[titleParts.length - 1];
-            if (possiblePublisher.length < 45) {
-                publisher = possiblePublisher;
-                titleParts.pop();
-                cleanTitle = titleParts.join(' - ');
-            }
+            const p = titleParts[titleParts.length - 1];
+            if (p.length < 45) { publisher = p; titleParts.pop(); cleanTitle = titleParts.join(' - '); }
         }
-        
-        // Fallback to source tag
-        if (publisher === 'Unknown Publisher' && sourceName) {
-            publisher = sourceName;
-        }
+        if (!publisher && sourceName) publisher = sourceName;
 
         const relativeTime = getRelativeTime(pubDate);
         
-        // Enhance image resolution by tweaking Google image proxy parameters
+        // Enhance google proxy
         if(imgSrc && imgSrc.includes('googleusercontent.com') && imgSrc.includes('-w') && imgSrc.includes('-h')) {
-            imgSrc = imgSrc.replace(/-w\d+-h\d+(-?)/, '-w800-h400$1');
+            imgSrc = imgSrc.replace(/-w\d+-h\d+(-?)/, '-w800-h500$1');
         }
         
-        // Route through our backend proxy to bypass CDN hotlink protection
+        // Proxy route
         let proxiedSrc = '';
         const hasRealImage = imgSrc && imgSrc.startsWith('http');
         if (hasRealImage) {
-            // Base64-encode the URL for safe transport as a query param
             const encoded = btoa(imgSrc).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
             proxiedSrc = `/proxy-image?url=${encoded}`;
         }
         
-        // Calculate animation delay for a cascading stagger effect
-        const delay = (index % articleCount) * 50;
+        const delay = index * 25;
+        const meshBg = MESH_FALLBACKS[index % MESH_FALLBACKS.length];
         
+        // Build card
         const card = document.createElement('a');
         card.href = link;
         card.target = '_blank';
         card.rel = 'noopener noreferrer';
-        card.className = "group flex flex-col bg-card backdrop-blur-xl rounded-2xl border border-white/5 overflow-hidden hover:border-white/20 hover:shadow-2xl hover:shadow-primary/20 hover:bg-white/5 transition-all duration-500 animate-fade-in-up block";
+        card.className = 'news-card animate-fade-in-up';
         card.style.animationDelay = `${delay}ms`;
+        card.style.height = '340px';
         
-        // The gradient is always the fallback — pure CSS, can never fail
-        const gradient = GRADIENT_FALLBACKS[index % GRADIENT_FALLBACKS.length];
+        // Hover glow
+        card.addEventListener('mouseenter', function() {
+            const r = this.dataset.accentR, g = this.dataset.accentG, b = this.dataset.accentB;
+            if (r) {
+                this.style.boxShadow = `0 8px 40px rgba(${r},${g},${b},0.12), 0 0 0 1px rgba(${r},${g},${b},0.1)`;
+                this.style.borderColor = `rgba(${r},${g},${b},0.3)`;
+                this.style.borderTopColor = `rgba(${r},${g},${b},0.6)`;
+                this.style.borderTopWidth = '2px';
+            }
+        });
+        card.addEventListener('mouseleave', function() {
+            this.style.boxShadow = '';
+            const r = this.dataset.accentR;
+            if (r) {
+                this.style.borderColor = '#27272a';
+                this.style.borderTopColor = `rgba(${this.dataset.accentR},${this.dataset.accentG},${this.dataset.accentB},0.5)`;
+                this.style.borderTopWidth = '2px';
+            } else {
+                this.style.borderColor = '#27272a';
+            }
+            this.style.transform = '';
+        });
         
         card.innerHTML = `
-            <div class="relative w-full h-56 overflow-hidden flex-shrink-0" style="background:${gradient};">
-                ${hasRealImage ? `<img src="${proxiedSrc}" alt="" class="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-700 ease-out"
-                     onerror="this.style.display='none';"
-                >` : ''}
-                
-                <!-- Overlay Gradients -->
-                <div class="absolute inset-0 bg-gradient-to-t from-darker via-darker/50 to-transparent opacity-90 group-hover:opacity-75 transition-opacity duration-300"></div>
-                
-                <!-- Publisher Tag Top Right -->
-                <div class="absolute top-4 right-4 bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/10 flex items-center space-x-2 shadow-xl z-20">
-                    <img src="${logoSrc}" alt="Logo" class="w-4 h-4 rounded-sm" onerror="this.style.display='none'">
-                    <span class="text-[10px] font-bold text-gray-200 tracking-wider uppercase">${publisher}</span>
-                </div>
-            </div>
+            <!-- Background (mesh gradient fallback is always present) -->
+            <div style="position:absolute;inset:0;background:${meshBg};"></div>
             
-            <div class="p-6 flex flex-col flex-grow relative bg-card/60 backdrop-blur-2xl">
-                <!-- Time indicator -->
-                <div class="flex items-center space-x-2 text-primary/80 text-[11px] font-semibold mb-3 tracking-widest uppercase">
-                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                    </svg>
-                    <span>${relativeTime}</span>
+            <!-- Hero Image (if available) -->
+            ${hasRealImage ? `<img src="${proxiedSrc}" alt="" crossorigin="anonymous" class="card-image" onerror="this.style.display='none';">` : ''}
+            
+            <!-- Gradient scrim -->
+            <div class="card-scrim"></div>
+            
+            <!-- Content overlay -->
+            <div class="card-content">
+                <!-- Publisher + Time -->
+                <div class="flex items-center justify-between mb-1.5">
+                    <div class="flex items-center space-x-1.5 min-w-0">
+                        ${logoSrc ? `<img src="${logoSrc}" alt="" class="w-3.5 h-3.5 rounded-sm flex-shrink-0 opacity-80" onerror="this.style.display='none'">` : ''}
+                        <span class="text-[11px] text-zinc-400 font-medium truncate">${publisher}</span>
+                    </div>
+                    <span class="text-[10px] text-zinc-500 flex-shrink-0 ml-2 tabular-nums">${relativeTime}</span>
                 </div>
                 
                 <!-- Headline -->
-                <h3 class="text-lg font-bold text-white mb-4 leading-snug group-hover:text-primary transition-colors line-clamp-3">
+                <h3 class="text-[14px] font-semibold text-white leading-snug line-clamp-2" style="text-shadow: 0 1px 3px rgba(0,0,0,0.3);">
                     ${cleanTitle}
                 </h3>
                 
-                <!-- Snippet -->
-                <div class="mt-auto">
-                    <p class="text-[13px] text-gray-400/90 line-clamp-4 leading-relaxed border-l-[3px] border-white/5 pl-4 italic">
-                        "${snippet}"
+                <!-- Snippet: slides up on hover -->
+                ${snippet ? `
+                <div class="card-snippet">
+                    <p class="text-[11px] text-zinc-400 leading-relaxed line-clamp-2 mt-2">
+                        ${snippet}
                     </p>
-                </div>
-                
-                <!-- Hover indicator line -->
-                <div class="absolute bottom-0 left-0 w-0 h-1 bg-gradient-to-r from-primary to-indigo-500 group-hover:w-full transition-all duration-500 ease-out"></div>
+                </div>` : ''}
             </div>
         `;
+        
+        // Color Thief after image loads
+        if (hasRealImage) {
+            const img = card.querySelector('.card-image');
+            if (img) {
+                if (img.complete && img.naturalWidth > 0) {
+                    applyColorThief(img, card);
+                } else {
+                    img.addEventListener('load', () => applyColorThief(img, card));
+                }
+            }
+        }
         
         newsGrid.appendChild(card);
     });
 }
 
-// Ensure init fires
 window.addEventListener('DOMContentLoaded', init);
