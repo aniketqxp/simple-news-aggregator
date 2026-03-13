@@ -8,7 +8,7 @@ import urllib.parse
 from urllib.parse import urlparse
 import base64
 import io
-from googlenewsdecoder import decoderv1
+from googlenewsdecoder import gnewsdecoder  # FIXED IMPORT
 from newspaper import Article
 import concurrent.futures
 import time
@@ -129,14 +129,17 @@ def process_news_item(index, item):
         "snippet": fallback_snippet
     }
 
-    # Decode the Google News redirect
+    # Decode the Google News redirect using the FIXED universal decoder
     real_link = link
     try:
-        decoded = decoderv1(link)
-        if decoded and decoded.get("status"):
-            real_link = decoded["decoded_url"]
-    except Exception:
-        pass
+        decoded = gnewsdecoder(link, interval=1)
+        if isinstance(decoded, dict):
+            if decoded.get("status"):
+                real_link = decoded["decoded_url"]
+        elif isinstance(decoded, str):
+            real_link = decoded
+    except Exception as e:
+        print(f"Decoding error for {link}: {e}")
 
     result_data["link"] = real_link
 
