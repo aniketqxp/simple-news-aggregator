@@ -1,10 +1,13 @@
 from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import StreamingResponse
 import requests
 from bs4 import BeautifulSoup
 import urllib.parse
 from urllib.parse import urlparse
+import base64
+import io
 from googlenewsdecoder import new_decoderv1
 from newspaper import Article
 import concurrent.futures
@@ -171,6 +174,33 @@ def fetch_news(q: str = Query(..., description="Search query")):
         results = list(executor.map(lambda i_item: process_news_item(i_item[0], i_item[1]), enumerate(items)))
 
     return results
+
+@app.get("/proxy-image")
+def proxy_image(url: str = Query(..., description="Base64-encoded image URL")):
+    """Fetch an image server-side and stream it to the browser, bypassing hotlink protection."""
+    try:
+        # Re-add padding stripped by frontend
+        padded = url + '=' * (4 - len(url) % 4) if len(url) % 4 else url
+        decoded_url = base64.urlsafe_b64decode(padded).decode('utf-8')
+    except Exception:
+        decoded_url = url  # Fallback if not encoded
+    
+    try:
+        resp = requests.get(decoded_url, timeout=5, headers={
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+        }, stream=True)
+        resp.raise_for_status()
+        
+        content_type = resp.headers.get('Content-Type', 'image/jpeg')
+        return StreamingResponse(
+            io.BytesIO(resp.content),
+            media_type=content_type,
+            headers={'Cache-Control': 'public, max-age=86400'}  # Cache for 24h
+        )
+    except Exception:
+        # Return a 1x1 transparent pixel so onerror fires in the browser
+        pixel = base64.b64decode('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7')
+        return StreamingResponse(io.BytesIO(pixel), media_type='image/gif')
 
 # Serve static files (index.html, app.js, etc.)
 app.mount("/", StaticFiles(directory=".", html=True), name="static")

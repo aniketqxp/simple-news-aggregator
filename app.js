@@ -2,7 +2,7 @@
 const BASE_NEWS_URL = 'http://127.0.0.1:8000/fetch-news?q={query}';
 
 let currentQuery = 'Technology';
-let articleCount = 20;
+let articleCount = 15;
 let currentAbortController = null;
 
 // Memory Cache for instantaneous topic switching
@@ -252,8 +252,17 @@ function renderNews(items) {
         const relativeTime = getRelativeTime(pubDate);
         
         // Enhance image resolution by tweaking Google image proxy parameters
-        if(imgSrc.includes('googleusercontent.com') && imgSrc.includes('-w') && imgSrc.includes('-h')) {
+        if(imgSrc && imgSrc.includes('googleusercontent.com') && imgSrc.includes('-w') && imgSrc.includes('-h')) {
             imgSrc = imgSrc.replace(/-w\d+-h\d+(-?)/, '-w800-h400$1');
+        }
+        
+        // Route through our backend proxy to bypass CDN hotlink protection
+        let proxiedSrc = '';
+        const hasRealImage = imgSrc && imgSrc.startsWith('http');
+        if (hasRealImage) {
+            // Base64-encode the URL for safe transport as a query param
+            const encoded = btoa(imgSrc).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+            proxiedSrc = `/proxy-image?url=${encoded}`;
         }
         
         // Calculate animation delay for a cascading stagger effect
@@ -269,12 +278,9 @@ function renderNews(items) {
         // The gradient is always the fallback — pure CSS, can never fail
         const gradient = GRADIENT_FALLBACKS[index % GRADIENT_FALLBACKS.length];
         
-        // If no real thumbnail, don't even render an img tag — just show the gradient
-        const hasRealImage = imgSrc && imgSrc.startsWith('http');
-        
         card.innerHTML = `
             <div class="relative w-full h-56 overflow-hidden flex-shrink-0" style="background:${gradient};">
-                ${hasRealImage ? `<img src="${imgSrc}" alt="" class="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-700 ease-out"
+                ${hasRealImage ? `<img src="${proxiedSrc}" alt="" class="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-700 ease-out"
                      onerror="this.style.display='none';"
                 >` : ''}
                 
