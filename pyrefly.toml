@@ -1,0 +1,5 @@
+[tool.pyrefly]
+# This points directly to your global 3.13 site-packages
+site-package-path = ["C:/Users/Aniket Shinde/AppData/Local/Programs/Python/Python313/Lib/site-packages"]
+python-version = "3.13"
+executor-kind = "v3"

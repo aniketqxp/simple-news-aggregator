@@ -1,0 +1,96 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+    color-scheme: dark;
+}
+
+body {
+    background-color: #0a0a0a;
+    background-image: 
+        radial-gradient(ellipse at 10% 0%, rgba(30, 58, 138, 0.15) 0%, transparent 60%),
+        radial-gradient(ellipse at 90% 100%, rgba(59, 130, 246, 0.1) 0%, transparent 60%),
+        radial-gradient(ellipse at 50% 50%, rgba(79, 70, 229, 0.05) 0%, transparent 80%);
+    background-attachment: fixed;
+    min-height: 100vh;
+    font-family: 'Outfit', sans-serif;
+    color: #e5e5e5;
+}
+
+/* Custom Scrollbar for global body */
+::-webkit-scrollbar {
+    width: 10px;
+    height: 6px;
+}
+
+::-webkit-scrollbar-track {
+    background: #0a0a0a;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #2a2a2a;
+    border-radius: 5px;
+    border: 2px solid #0a0a0a;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #3b82f6;
+}
+
+/* Hide scrollbar on specific elements */
+.hide-scrollbar::-webkit-scrollbar {
+    display: none;
+}
+.hide-scrollbar {
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;  /* Firefox */
+}
+.hide-scrollbar-body::-webkit-scrollbar {
+    display: none;
+}
+.hide-scrollbar-body {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}
+@media (min-width: 768px) {
+    .hide-scrollbar-body::-webkit-scrollbar {
+        display: block;
+    }
+    .hide-scrollbar-body {
+        -ms-overflow-style: auto;
+        scrollbar-width: auto;
+    }
+}
+
+/* Keyframes */
+@keyframes fade-in-up {
+    from {
+        opacity: 0;
+        transform: translateY(30px) scale(0.98);
+        filter: blur(4px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+        filter: blur(0);
+    }
+}
+
+.animate-fade-in-up {
+    animation: fade-in-up 0.7s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    opacity: 0;
+}
+
+/* Glassmorphism utilities */
+.glass {
+    background: rgba(18, 18, 18, 0.7);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+}
+
+/* Select element native styling removal */
+select option {
+    background-color: #121212;
+    color: white;
+}
