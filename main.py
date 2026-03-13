@@ -195,7 +195,10 @@ def proxy_image(url: str = Query(..., description="Base64-encoded image URL")):
         return StreamingResponse(
             io.BytesIO(resp.content),
             media_type=content_type,
-            headers={'Cache-Control': 'public, max-age=86400'}  # Cache for 24h
+            headers={
+                'Cache-Control': 'public, max-age=86400',
+                'Access-Control-Allow-Origin': '*'
+            }  # Cache for 24h
         )
     except Exception:
         # Return a 1x1 transparent pixel so onerror fires in the browser
