@@ -8,7 +8,7 @@ import urllib.parse
 from urllib.parse import urlparse
 import base64
 import io
-from googlenewsdecoder import new_decoderv1
+from googlenewsdecoder import decoderv1
 from newspaper import Article
 import concurrent.futures
 import time
@@ -132,7 +132,7 @@ def process_news_item(index, item):
     # Decode the Google News redirect
     real_link = link
     try:
-        decoded = new_decoderv1(link)
+        decoded = decoderv1(link)
         if decoded and decoded.get("status"):
             real_link = decoded["decoded_url"]
     except Exception:
