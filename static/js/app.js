@@ -220,6 +220,9 @@ function hideLoading() {
 async function fetchNews(forceRefresh = false) {
     currentTopicTitle.textContent = currentQuery || 'Top Stories';
     
+    const banner = document.getElementById('status-banner');
+    const bannerText = document.getElementById('status-banner-text');
+
     if (currentAbortController) {
         currentAbortController.abort();
         currentAbortController = null;
@@ -237,12 +240,23 @@ async function fetchNews(forceRefresh = false) {
     const fetchQuery = currentQuery;
     
     showLoading();
+    banner.classList.add('hidden');
     
     try {
         const url = BASE_NEWS_URL.replace('{query}', encodeURIComponent(currentQuery));
         const response = await fetch(url, { signal: controller.signal });
         if (!response.ok) throw new Error('Network response was not ok');
         const items = await response.json();
+        
+        // UI-level health check: if thumbnails are missing (likely rate-limited), surface the banner.
+        const hasThumbnails = items.filter(i => i.thumbnail && i.thumbnail.length > 0);
+        if (items.length > 0 && hasThumbnails.length < items.length / 2) {
+            banner.classList.remove('hidden');
+            bannerText.textContent = 'Image extraction is currently restricted by news providers or rate limits. Headlines and sources remain live.';
+        } else {
+            banner.classList.add('hidden');
+        }
+
         categoryData[normalizedQuery] = items;
         if (fetchQuery !== currentQuery) return;
         renderNews(items.slice(0, articleCount));
