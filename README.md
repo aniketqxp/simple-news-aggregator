@@ -15,41 +15,42 @@ The following diagram illustrates the data flow and system components:
 
 ```mermaid
 graph TD
-    %% Node Definitions
-    U([User / AI Agent]) -->|UI Interaction| FE[Vanilla JS Frontend]
-    U -.->|Tool Discovery| MCP{MCP Interface}
+    %% Client Layer
+    U([User]) -->|Browser| FE[Vanilla JS Frontend]
+    AI([AI Agent]) -->|Context Request| MCP{MCP Interface}
     
-    subgraph "Server Core"
-        BE[FastAPI Backend]
-        MCP ==>|Standardized Access| BE
+    %% Application Layer
+    FE -->|API Query| BE[FastAPI Backend]
+    MCP -->|Tool Execution| BE
+    
+    subgraph "Data Enrichment Pipeline"
+        direction TB
+        RSS[/Google News RSS/] -->|Raw Items| DEC(googlenewsdecoder)
+        DEC -->|Resolved Links| SCR(newspaper4k)
+        SCR -->|Metadata & Images| BE
     end
     
-    FE -->|REST API| BE
+    BE -->|1. Triggers Fetch| RSS
     
-    subgraph "Enrichment Engine"
-        direction LR
-        RSS[/Google News RSS/] --- BE
-        DEC(googlenewsdecoder) --- BE
-        SCR(newspaper4k) --- BE
-    end
-    
+    %% Response Layer
     BE -->|Enriched JSON| FE
+    BE -->|Structured Context| MCP
     
-    subgraph "Asset Delivery"
-        PRX[/Image Proxy/] -->|CORS-Safe| FE
+    subgraph "Asset Handling"
+        FE -.->|Image Request| PRX[/Image Proxy/]
+        PRX -.->|CORS-Safe Image| FE
     end
-    
-    FE -.->|Proxy Request| PRX
 
     %% Styling
     style U fill:#2d3436,stroke:#000,color:#fff
+    style AI fill:#2d3436,stroke:#000,color:#fff
     style FE fill:#0984e3,stroke:#000,color:#fff
-    style BE fill:#6c5ce7,stroke:#000,color:#fff
-    style MCP fill:#2d3436,stroke:#6c5ce7,color:#fff
-    style RSS fill:#00b894,stroke:#000,color:#fff
-    style DEC fill:#fdcb6e,stroke:#000,color:#000
-    style SCR fill:#e17055,stroke:#000,color:#fff
-    style PRX fill:#d63031,stroke:#000,color:#fff
+    style MCP fill:#6c5ce7,stroke:#000,color:#fff
+    style BE fill:#00b894,stroke:#000,color:#fff
+    style RSS fill:#fdcb6e,stroke:#000,color:#000
+    style DEC fill:#e17055,stroke:#000,color:#fff
+    style SCR fill:#d63031,stroke:#000,color:#fff
+    style PRX fill:#0984e3,stroke:#000,color:#fff
 ```
 
 ## Key Capabilities
