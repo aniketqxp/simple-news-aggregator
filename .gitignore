@@ -89,3 +89,6 @@ desktop.ini
 dist/
 build/
 *.egg-info/
+
+# Private Documentation
+TECHNICAL_DETAILS.md
