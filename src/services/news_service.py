@@ -5,7 +5,7 @@ from typing import Optional, List, Dict, Tuple
 from collections import OrderedDict
 from urllib.parse import urlparse
 from bs4 import BeautifulSoup
-from googlenewsdecoder import decoderv3 as gnewsdecoder
+from googlenewsdecoder.decoderv3 import decode_google_news_url as gnewsdecoder
 from newspaper import Article
 import concurrent.futures
 
