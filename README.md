@@ -15,23 +15,33 @@ The following diagram illustrates the data flow and system components:
 
 ```mermaid
 graph TD
-    User([User]) -->|Interacts| Frontend[Vanilla JS Frontend]
-    Frontend -->|GET /fetch-news| Backend[FastAPI Backend]
+    %% Node Definitions
+    U([User]) -->|Interacts| FE[Vanilla JS Frontend]
+    FE -->|GET /fetch-news| BE[FastAPI Backend]
     
     subgraph "Enrichment Pipeline"
-        Backend -->|1. Fetch| RSS[Google News RSS Feed]
-        Backend -->|2. Decode| Decoder[googlenewsdecoder]
-        Backend -->|3. Scrape| Scraper[newspaper4k]
+        BE -->|1. Fetch| RSS[/Google News RSS Feed/]
+        BE -->|2. Decode| DEC(googlenewsdecoder)
+        BE -->|3. Scrape| SCR(newspaper4k)
     end
     
     subgraph "Asset Handling"
-        Backend -->|4. Proxy| Proxy[Image Proxy Service]
+        BE -->|4. Proxy| PRX[/Image Proxy Service/]
     end
     
-    RSS -->|Headlines| Backend
-    Decoder -->|Source Links| Backend
-    Scraper -->|Metadata & Snippets| Backend
-    Proxy -->|CORS-Optimized Images| Frontend
+    RSS -->|Headlines| BE
+    DEC -->|Source Links| BE
+    SCR -->|Metadata & Snippets| BE
+    PRX -->|CORS-Optimized Images| FE
+
+    %% Styling
+    style U fill:#2d3436,stroke:#000,color:#fff
+    style FE fill:#0984e3,stroke:#000,color:#fff
+    style BE fill:#6c5ce7,stroke:#000,color:#fff
+    style RSS fill:#00b894,stroke:#000,color:#fff
+    style DEC fill:#fdcb6e,stroke:#000,color:#000
+    style SCR fill:#e17055,stroke:#000,color:#fff
+    style PRX fill:#d63031,stroke:#000,color:#fff
 ```
 
 ## Key Capabilities
