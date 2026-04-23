@@ -63,8 +63,29 @@ venv.bak/
 .idea/
 *.swp
 *.swo
-
-# OS files
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# Data & ML Large Files
+*.tiff
+*.h5
+*.pt
+*.safetensors
+*.bin
+*.model
+*.onnx
+*.weights
+*.pkl
+*.npy
+*.npz
+
+# Local development
+.env
+.env.local
+.env.*.local
+
+# Build artifacts
+dist/
+build/
+*.egg-info/
