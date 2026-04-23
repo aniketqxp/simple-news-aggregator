@@ -16,28 +16,36 @@ The following diagram illustrates the data flow and system components:
 ```mermaid
 graph TD
     %% Node Definitions
-    U([User]) -->|Interacts| FE[Vanilla JS Frontend]
-    FE -->|Query Request| BE[FastAPI Backend]
+    U([User / AI Agent]) -->|UI Interaction| FE[Vanilla JS Frontend]
+    U -.->|Tool Discovery| MCP{MCP Interface}
     
-    subgraph "Enrichment Pipeline"
-        BE -.->|External Fetch| RSS[/Google News RSS Feed/]
-        RSS -->|Headlines| BE
-        
-        BE -.->|URL Resolution| DEC(googlenewsdecoder)
-        DEC -->|Source Links| BE
-        
-        BE -.->|Forensic Scraping| SCR(newspaper4k)
-        SCR -->|Metadata & Snippets| BE
+    subgraph "Server Core"
+        BE[FastAPI Backend]
+        MCP ==>|Standardized Access| BE
+    end
+    
+    FE -->|REST API| BE
+    
+    subgraph "Enrichment Engine"
+        direction LR
+        RSS[/Google News RSS/] --- BE
+        DEC(googlenewsdecoder) --- BE
+        SCR(newspaper4k) --- BE
     end
     
     BE -->|Enriched JSON| FE
-    FE -->|Proxied Image Request| PRX[/Image Proxy Service/]
-    PRX -->|CORS-Safe Asset| FE
+    
+    subgraph "Asset Delivery"
+        PRX[/Image Proxy/] -->|CORS-Safe| FE
+    end
+    
+    FE -.->|Proxy Request| PRX
 
     %% Styling
     style U fill:#2d3436,stroke:#000,color:#fff
     style FE fill:#0984e3,stroke:#000,color:#fff
     style BE fill:#6c5ce7,stroke:#000,color:#fff
+    style MCP fill:#2d3436,stroke:#6c5ce7,color:#fff
     style RSS fill:#00b894,stroke:#000,color:#fff
     style DEC fill:#fdcb6e,stroke:#000,color:#000
     style SCR fill:#e17055,stroke:#000,color:#fff
