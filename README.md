@@ -87,7 +87,11 @@ The enrichment pipeline relies on third-party services and publisher websites, w
 
 4.  **Start the server:**
     ```bash
-    uvicorn app.main:app --reload
+    python main.py
+    ```
+    Alternatively:
+    ```bash
+    uvicorn src.main:app --reload
     ```
 
 The application will be accessible at `http://127.0.0.1:8000`.
@@ -97,19 +101,21 @@ The application will be accessible at `http://127.0.0.1:8000`.
 ## Project Structure
 
 ```text
-├── app/
+├── src/
 │   ├── api/            # API endpoints and route logic
 │   ├── core/           # Configuration and application settings
 │   ├── models/         # Pydantic schemas for data validation
 │   ├── services/       # RSS fetching, URL decoding, and scraping logic
-│   └── main.py         # Application entry point and static file orchestration
+│   └── main.py         # Application core and static file orchestration
 ├── static/
 │   ├── css/            # Custom CSS files
 │   ├── js/             # Frontend application logic
 │   └── index.html      # Main HTML entry point
 ├── tests/              # Pytest-based integration tests
 ├── .gitignore
+├── pyproject.toml
 ├── requirements.txt
+├── main.py             # Root entry point
 └── README.md
 ```
 
