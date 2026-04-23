@@ -17,22 +17,22 @@ The following diagram illustrates the data flow and system components:
 graph TD
     %% Node Definitions
     U([User]) -->|Interacts| FE[Vanilla JS Frontend]
-    FE -->|GET /fetch-news| BE[FastAPI Backend]
+    FE -->|Query Request| BE[FastAPI Backend]
     
     subgraph "Enrichment Pipeline"
-        BE -->|1. Fetch| RSS[/Google News RSS Feed/]
-        BE -->|2. Decode| DEC(googlenewsdecoder)
-        BE -->|3. Scrape| SCR(newspaper4k)
+        BE -.->|External Fetch| RSS[/Google News RSS Feed/]
+        RSS -->|Headlines| BE
+        
+        BE -.->|URL Resolution| DEC(googlenewsdecoder)
+        DEC -->|Source Links| BE
+        
+        BE -.->|Forensic Scraping| SCR(newspaper4k)
+        SCR -->|Metadata & Snippets| BE
     end
     
-    subgraph "Asset Handling"
-        BE -->|4. Proxy| PRX[/Image Proxy Service/]
-    end
-    
-    RSS -->|Headlines| BE
-    DEC -->|Source Links| BE
-    SCR -->|Metadata & Snippets| BE
-    PRX -->|CORS-Optimized Images| FE
+    BE -->|Enriched JSON| FE
+    FE -->|Proxied Image Request| PRX[/Image Proxy Service/]
+    PRX -->|CORS-Safe Asset| FE
 
     %% Styling
     style U fill:#2d3436,stroke:#000,color:#fff
